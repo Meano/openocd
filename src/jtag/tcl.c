@@ -944,15 +944,15 @@ COMMAND_HANDLER(handle_irscan_command)
 	}
 
 	int num_fields = CMD_ARGC / 2;
-	if (num_fields > 1) {
-		/* we really should be looking at plain_ir_scan if we want
-		 * anything more fancy.
-		 */
-		LOG_ERROR("Specify a single value for tap");
-		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
+	// if (num_fields > 1) {
+	// 	/* we really should be looking at plain_ir_scan if we want
+	// 	 * anything more fancy.
+	// 	 */
+	// 	LOG_ERROR("Specify a single value for tap");
+	// 	return ERROR_COMMAND_SYNTAX_ERROR;
+	// }
 
-	fields = calloc(num_fields, sizeof(*fields));
+	fields = calloc(num_fields + 1, sizeof(*fields));
 
 	int retval;
 	for (i = 0; i < num_fields; i++) {

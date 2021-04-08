@@ -71,6 +71,7 @@ int interface_jtag_add_ir_scan(struct jtag_tap *active,
 
 	/* loop over all enabled TAPs */
 
+	size_t active_tap_index = 0;
 	for (struct jtag_tap *tap = jtag_tap_next_enabled(NULL); tap; tap = jtag_tap_next_enabled(tap)) {
 		/* search the input field list for fields for the current TAP */
 
@@ -78,7 +79,8 @@ int interface_jtag_add_ir_scan(struct jtag_tap *active,
 			/* if TAP is listed in input fields, copy the value */
 			tap->bypass = false;
 
-			jtag_scan_field_clone(field, in_fields);
+			jtag_scan_field_clone(field, in_fields + active_tap_index);
+			active_tap_index++;
 		} else {
 			/* if a TAP isn't listed in input fields, set it to BYPASS */
 
