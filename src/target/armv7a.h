@@ -171,6 +171,10 @@ static inline bool is_armv7a(struct armv7a_common *armv7a)
 /* See ARMv7a arch spec DDI 0406C C11.10 */
 #define CPUDBG_ID_PFR1		0xD24
 
+/* Key value for OSLAR register See ARMv7a arch spec DDI 0406C C11.11.31 */
+#define DBG_OSLAR_LOCK_KEY	(0xC5ACCE55)
+#define DBG_OSLAR_UNLOCK_KEY	(0x00000000)
+
 /* Masks for Vector Catch register */
 #define DBG_VCR_FIQ_MASK	((1 << 31) | (1 << 7))
 #define DBG_VCR_IRQ_MASK	((1 << 30) | (1 << 6))

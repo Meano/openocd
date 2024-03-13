@@ -275,6 +275,49 @@ static int cortex_a_wait_instrcmpl(struct target *target, uint32_t *dscr, bool f
 	return retval;
 }
 
+static int cortex_a_set_oslock(struct target *target, bool is_lock)
+{
+	struct armv7a_common *armv7a = target_to_armv7a(target);
+
+	uint32_t dbg_osreg;
+
+	/* check current OS Lock state first */
+	int retval = mem_ap_read_atomic_u32(armv7a->debug_ap,
+					armv7a->debug_base + CPUDBG_OSLSR,
+					&dbg_osreg);
+	if (retval != ERROR_OK)
+		return retval;
+	bool lock_state = (dbg_osreg & OSLSR_OSLK) == OSLSR_OSLK;
+
+	if (is_lock == lock_state)
+		return ERROR_OK;
+
+	LOG_DEBUG("Read os lock state DBGOSLSR 0x%" PRIx32, dbg_osreg);
+
+	/* set OS Lock */
+	retval = mem_ap_write_atomic_u32(armv7a->debug_ap,
+				armv7a->debug_base + CPUDBG_OSLAR,
+				is_lock ? DBG_OSLAR_LOCK_KEY : DBG_OSLAR_UNLOCK_KEY);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Set OS Lock failed for: %d", retval);
+		return retval;
+	}
+
+	/* check set result */
+	retval = mem_ap_read_atomic_u32(armv7a->debug_ap,
+					armv7a->debug_base + CPUDBG_OSLSR,
+					&dbg_osreg);
+	if (retval != ERROR_OK)
+		return retval;
+
+	if (((dbg_osreg & OSLSR_OSLK) == OSLSR_OSLK) != is_lock) {
+		LOG_ERROR("Set OS Lock ineffective!");
+		return ERROR_FAIL;
+	}
+
+	return ERROR_OK;
+}
+
 /* To reduce needless round-trips, pass in a pointer to the current
  * DSCR value.  Initialize it to zero if you just need to know the
  * value on return from this function; or DSCR_INSTR_COMP if you
@@ -296,10 +339,16 @@ static int cortex_a_exec_opcode(struct target *target,
 	if (retval != ERROR_OK)
 		return retval;
 
+	//if (armv7a->arm.core_type = ARM_CORE_TYPE_SEC_EXT)
+	//	cortex_a_set_oslock(target, true);
+
 	retval = mem_ap_write_u32(armv7a->debug_ap,
 			armv7a->debug_base + CPUDBG_ITR, opcode);
 	if (retval != ERROR_OK)
 		return retval;
+
+	//if (armv7a->arm.core_type = ARM_CORE_TYPE_SEC_EXT)
+	//	cortex_a_set_oslock(target, false);
 
 	/* Wait for InstrCompl bit to be set */
 	retval = cortex_a_wait_instrcmpl(target, &dscr, true);
@@ -2803,6 +2852,12 @@ static int cortex_a_write_memory(struct target *target, target_addr_t address,
 static int cortex_a_read_buffer(struct target *target, target_addr_t address,
 				uint32_t count, uint8_t *buffer)
 {
+	if (address < 0x80000000)
+	{
+		LOG_DEBUG("Call DDR Memory!");
+		memset(buffer, 0, count);
+		return ERROR_OK;
+	}
 	uint32_t size;
 
 	/* Align up to maximum 4 bytes. The loop condition makes sure the next pass
@@ -2982,6 +3037,9 @@ static int cortex_a_examine_first(struct target *target)
 	LOG_DEBUG("didr = 0x%08" PRIx32, didr);
 	LOG_DEBUG("cpuid = 0x%08" PRIx32, cpuid);
 
+	retval = mem_ap_read_atomic_u32(armv7a->debug_ap,
+			armv7a->debug_base + CPUDBG_PRSR, &dbg_osreg);
+
 	cortex_a->didr = didr;
 	cortex_a->cpuid = cpuid;
 
@@ -3009,6 +3067,7 @@ static int cortex_a_examine_first(struct target *target)
 
 	/* check if OS Lock is implemented */
 	if ((dbg_osreg & OSLSR_OSLM) == OSLSR_OSLM0 || (dbg_osreg & OSLSR_OSLM) == OSLSR_OSLM1) {
+		cortex_a_set_oslock(target, true);
 		/* check if OS Lock is set */
 		if (dbg_osreg & OSLSR_OSLK) {
 			LOG_TARGET_DEBUG(target, "OSLock set! Trying to unlock");
