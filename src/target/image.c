@@ -592,6 +592,7 @@ static int image_elf64_read_headers(struct image *image)
 			else
 				image->sections[j].base_address = field64(elf,
 						elf->segments64[i].p_paddr);
+			LOG_DEBUG("Section addr: %llX", image->sections[j].base_address);
 			image->sections[j].private = &elf->segments64[i];
 			image->sections[j].flags = field64(elf, elf->segments64[i].p_flags);
 			j++;
